@@ -10,8 +10,9 @@ use Illuminate\Support\Facades\Validator;
 class AuthController extends Controller
 {
 
-    public function register(Request $request){
-         try {
+    public function register(Request $request)
+    {
+        try {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:100',
                 'email' => 'required|string|email|min:10|max:50|unique:users,email',
@@ -35,7 +36,7 @@ class AuthController extends Controller
             return response()->json([
                 'Usuario creado con exito',
                 $user
-            ],201);
+            ], 201);
         } catch (\Throwable $th) {
             return response()->json([
                 'message' => 'Error al procesar la solicitud',
@@ -58,7 +59,7 @@ class AuthController extends Controller
                 'message' => 'Credenciales incorrectas'
             ], 401);
         }
-
+        $user->tokens()->delete();
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
