@@ -13,5 +13,7 @@ Route::get('/user', function (Request $request) {
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register',[AuthController::class,'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::get('/conversations',[ConversationController::class,'getAllConversations'])->middleware('auth:sanctum');
 Route::post('/conversations',[ConversationController::class,'store'])->middleware('auth:sanctum');
+
 Route::get('/users/find-user/{busqueda}',[UserController::class,'findUsers'])->middleware('auth:sanctum');
