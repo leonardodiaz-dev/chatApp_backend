@@ -62,7 +62,7 @@ class ConversationController extends Controller
             $userId = Auth::id();
             $conversations = Conversation::with(['users' => function ($query) use ($userId) {
                 $query->where('users.id', '!=', $userId);
-            }])->whereHas('users', fn($q) => $q->where('users.id', $userId))
+            }, 'lastMessage'])->whereHas('users', fn($q) => $q->where('users.id', $userId))
                 ->get()
                 ->map(function ($conversacion) {
                     $conversacion->users->transform(function ($user) {
@@ -72,6 +72,8 @@ class ConversationController extends Controller
                             'lastname' => $user->lastname
                         ];
                     });
+                    $conversacion->last_message_content = $conversacion->lastMessage?->content;
+                    $conversacion->last_message_date    = $conversacion->lastMessage?->created_at;
                     return $conversacion;
                 });
             return response()->json([
