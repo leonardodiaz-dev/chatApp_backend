@@ -65,16 +65,19 @@ class ConversationController extends Controller
             }, 'lastMessage'])->whereHas('users', fn($q) => $q->where('users.id', $userId))
                 ->get()
                 ->map(function ($conversacion) {
-                    $conversacion->users->transform(function ($user) {
-                        return [
-                            'id'       => $user->id,
-                            'name'     => $user->name,
-                            'lastname' => $user->lastname
-                        ];
-                    });
-                    $conversacion->last_message_content = $conversacion->lastMessage?->content;
-                    $conversacion->last_message_date    = $conversacion->lastMessage?->created_at;
-                    return $conversacion;
+                    return [
+                        'id' => $conversacion->id,
+                        'type' => $conversacion->type,
+                        'users' =>  $conversacion->users->transform(function ($user) {
+                            return [
+                                'id'       => $user->id,
+                                'name'     => $user->name,
+                                'lastname' => $user->lastname
+                            ];
+                        }),
+                        'last_message' => $conversacion->lastMessage->content,
+                        'last_date' => $conversacion->lastMessage->created_at 
+                    ];
                 });
             return response()->json([
                 'message' => 'Se obtuvieron correctamente las conversaciones',
