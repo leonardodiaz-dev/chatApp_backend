@@ -18,7 +18,9 @@ class ConversationController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'type' => 'required|string',
-                'user_id' => 'required|exists:users,id'
+                'name' => 'required|string',
+                'user_ids' => 'required|array',
+                'user_ids.*' => 'integer|exits:users,id'
             ]);
 
             if ($validator->fails()) {
@@ -36,18 +38,43 @@ class ConversationController extends Controller
                 ], 400);
             }
 
-            DB::transaction(function () use ($data, $userId) {
+            DB::transaction(function () use ($data) {
 
                 $conversation = Conversation::create([
-                    'type' => $data['type']
+                    'type' => $data['type'],
+                    'name' => $data['name']
                 ]);
 
-                $conversation->users()->attach([$userId, $data['user_id']]);
+                $conversation->users()->attach($data['user_ids']);
             });
 
             return response()->json([
-                'message' => 'Conversación creada correctamente',
+                'message' => 'Conctacto agregado correctamente',
             ], 201);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
+                'error' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getContacts()
+    {
+        try {
+            $userId = Auth::id();
+            $contacts = Conversation::whereHas('users', fn($q) => $q->where('users.id', $userId))
+                ->with(['users' => function ($q) use ($userId) {
+                    $q->where('users.id', '!=', $userId)
+                        ->select('users.id', 'users.name','users.lastname');
+                }])
+                ->get();
+
+            $contacts_filter = $contacts->flatMap->users;
+            return response()->json([
+                'message' => 'Contactos obtenidos correctamente',
+                'data' => $contacts_filter
+            ]);
         } catch (\Throwable $th) {
             return response()->json([
                 'message' => 'Error al procesar la solicitud',
@@ -60,23 +87,16 @@ class ConversationController extends Controller
     {
         try {
             $userId = Auth::id();
-            $conversations = Conversation::with(['users' => function ($query) use ($userId) {
-                $query->where('users.id', '!=', $userId);
-            }, 'lastMessage'])->whereHas('users', fn($q) => $q->where('users.id', $userId))
+            $conversations = Conversation::with(['lastMessage'])
+                ->whereHas('users', fn($q) => $q->where('users.id', $userId))
                 ->get()
                 ->map(function ($conversacion) {
                     return [
                         'id' => $conversacion->id,
                         'type' => $conversacion->type,
-                        'users' =>  $conversacion->users->transform(function ($user) {
-                            return [
-                                'id'       => $user->id,
-                                'name'     => $user->name,
-                                'lastname' => $user->lastname
-                            ];
-                        }),
-                        'last_message' => $conversacion->lastMessage->content,
-                        'last_date' => $conversacion->lastMessage->created_at 
+                        'name' => $conversacion->name,
+                        'last_message' => $conversacion->lastMessage->content ?? '',
+                        'last_date' => $conversacion->lastMessage->created_at ?? ''
                     ];
                 });
             return response()->json([
