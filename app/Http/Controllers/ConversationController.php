@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Conversation;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class ConversationController extends Controller
@@ -13,14 +15,13 @@ class ConversationController extends Controller
     public function store(Request $request)
     {
         try {
-
             $userId = Auth::id();
 
             $validator = Validator::make($request->all(), [
-                'type' => 'required|string',
-                'name' => 'required|string',
-                'user_ids' => 'required|array',
-                'user_ids.*' => 'integer|exits:users,id'
+                'type'      => 'required|string|in:group,private',
+                'name'      => 'required|string|max:255',
+                'image'     => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+                'user_ids'  => 'required|string'
             ]);
 
             if ($validator->fails()) {
@@ -32,48 +33,71 @@ class ConversationController extends Controller
 
             $data = $validator->validated();
 
-            if ($userId == $data['user_id']) {
+            $participants = collect(explode(',', $data['user_ids']))
+                ->map(fn($id) => (int) trim($id))
+                ->filter();
+
+            $usersExists = User::whereIn('id', $participants)->pluck('id');
+
+            if ($usersExists->count() !== $participants->count()) {
                 return response()->json([
-                    'message' => 'No puedes iniciar una conversación contigo mismo'
-                ], 400);
+                    'message' => 'Uno o más usuarios no existen'
+                ], 422);
             }
 
-            DB::transaction(function () use ($data) {
+            $imagePath = null;
+            if ($request->hasFile('image')) {
+                $imagePath = $request->file('image')->store('conversations', 'public');
+            }
+
+            $conversation = DB::transaction(function () use ($data, $userId, $participants, $imagePath) {
 
                 $conversation = Conversation::create([
-                    'type' => $data['type'],
-                    'name' => $data['name']
+                    'type'   => $data['type'],
+                    'name'   => $data['name'],
+                    'avatar' => $imagePath,
                 ]);
 
-                $conversation->users()->attach($data['user_ids']);
+                if (!$participants->contains($userId)) {
+                    $participants->push($userId);
+                }
+
+                $conversation->users()->attach($participants->unique()->toArray());
+
+                return $conversation;
             });
 
             return response()->json([
-                'message' => 'Conctacto agregado correctamente',
+                'message' => 'Grupo creado correctamente',
+                'data' => $conversation
             ], 201);
         } catch (\Throwable $th) {
+
+            if (isset($imagePath)) {
+                Storage::disk('public')->delete($imagePath);
+            }
+
             return response()->json([
                 'message' => 'Error al procesar la solicitud',
                 'error' => $th->getMessage()
             ], 500);
         }
     }
-
     public function getContacts()
     {
         try {
             $userId = Auth::id();
-            $contacts = Conversation::whereHas('users', fn($q) => $q->where('users.id', $userId))
-                ->with(['users' => function ($q) use ($userId) {
-                    $q->where('users.id', '!=', $userId)
-                        ->select('users.id', 'users.name','users.lastname');
-                }])
+            $contacts = User::whereHas('conversations', function ($q) use ($userId) {
+                $q->whereHas('users', fn($q2) => $q2->where('users.id', $userId));
+            })
+                ->where('id', '!=', $userId)
+                ->select('id', 'name', 'lastname')
+                ->distinct()
                 ->get();
 
-            $contacts_filter = $contacts->flatMap->users;
             return response()->json([
                 'message' => 'Contactos obtenidos correctamente',
-                'data' => $contacts_filter
+                'data' => $contacts
             ]);
         } catch (\Throwable $th) {
             return response()->json([
