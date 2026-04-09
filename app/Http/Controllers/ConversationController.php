@@ -68,7 +68,7 @@ class ConversationController extends Controller
             });
 
             return response()->json([
-                'message' => 'Grupo creado correctamente',
+                'message' => 'Conversacion creada correctamente',
                 'data' => $conversation
             ], 201);
         } catch (\Throwable $th) {
@@ -111,16 +111,16 @@ class ConversationController extends Controller
     {
         try {
             $userId = Auth::id();
-            $conversations = Conversation::with(['lastMessage'])
-                ->whereHas('users', fn($q) => $q->where('users.id', $userId))
+            $conversations = Conversation::whereHas('users', fn($q) => $q->where('users.id', $userId))
+                ->orderByDesc('last_message_at')
                 ->get()
                 ->map(function ($conversacion) {
                     return [
                         'id' => $conversacion->id,
                         'type' => $conversacion->type,
                         'name' => $conversacion->name,
-                        'last_message' => $conversacion->lastMessage->content ?? '',
-                        'last_date' => $conversacion->lastMessage->created_at ?? ''
+                        'last_message' => $conversacion->last_message ?? '',
+                        'last_date' => $conversacion->last_message_at?->toISOString(),
                     ];
                 });
             return response()->json([
