@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Conversation;
 use App\Models\Message;
 
 use Illuminate\Http\Request;
@@ -16,13 +17,14 @@ class MessageController extends Controller
             $userId = Auth::id();
 
             $messages = Message::where('conversation_id', $idConversation)
+                ->orderBy('created_at')
                 ->get()
                 ->map(function ($message) use ($userId) {
                     return [
                         'id'      => $message->id,
                         'content' => $message->content,
                         'mine'    => $message->user_id === $userId,
-                        'time'    => $message->created_at->format('H:i'),
+                        'date' => $message->created_at->toISOString(),
                     ];
                 });
 
@@ -60,18 +62,24 @@ class MessageController extends Controller
                 'conversation_id' => $data['conversation_id'],
                 'user_id' => $userId,
             ]);
+            Conversation::where('id', $data['conversation_id'])
+                ->update([
+                    'last_message' =>$data['content'],
+                    'last_message_at' => now()
+                ]);
             $formated_message = [
                 'id' => $message->id,
                 'content' => $message->content,
                 'mine' => true,
-                'time' => $message->created_at->format('H:i'),
+                'time' => $message->created_at->format('g:i A'),
+                'date' => $message->created_at
             ];
-             return response()->json([
+            return response()->json([
                 'message' => 'Message enviado con exito',
                 'data'   => $formated_message
             ]);
         } catch (\Throwable $th) {
-             return response()->json([
+            return response()->json([
                 'message' => 'Error al procesar la solicitud',
                 'Error' => $th->getMessage()
             ], 500);
