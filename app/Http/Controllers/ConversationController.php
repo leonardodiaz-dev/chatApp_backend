@@ -111,14 +111,18 @@ class ConversationController extends Controller
     {
         try {
             $userId = Auth::id();
-            $conversations = Conversation::whereHas('users', fn($q) => $q->where('users.id', $userId))
+            $conversations = Conversation::with(['users' => function ($q) use ($userId) {
+                $q->where('users.id', '!=', $userId);
+            }])->whereHas('users', fn($q) => $q->where('users.id', $userId))
                 ->orderByDesc('last_message_at')
                 ->get()
                 ->map(function ($conversacion) {
                     return [
                         'id' => $conversacion->id,
                         'type' => $conversacion->type,
-                        'name' => $conversacion->name,
+                        'name' => $conversacion->type === 'group'
+                            ? $conversacion->name
+                            : $conversacion->users->first()->name,
                         'last_message' => $conversacion->last_message ?? '',
                         'last_date' => $conversacion->last_message_at?->toISOString(),
                     ];

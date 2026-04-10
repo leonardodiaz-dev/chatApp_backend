@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageSent;
 use App\Models\Conversation;
 use App\Models\Message;
 
@@ -25,6 +26,8 @@ class MessageController extends Controller
                         'content' => $message->content,
                         'mine'    => $message->user_id === $userId,
                         'date' => $message->created_at->toISOString(),
+                        'user_id' => $message->user_id,
+                        'conversation_id' => $message->conversation_id
                     ];
                 });
 
@@ -70,10 +73,12 @@ class MessageController extends Controller
             $formated_message = [
                 'id' => $message->id,
                 'content' => $message->content,
-                'mine' => true,
-                'time' => $message->created_at->format('g:i A'),
-                'date' => $message->created_at
+                'mine' => $message->user_id === $userId,
+                'user_id' => $message->user_id,
+                'date' => $message->created_at,
+                'conversation_id' => $message->conversation_id
             ];
+            broadcast(new MessageSent($formated_message))->toOthers();
             return response()->json([
                 'message' => 'Message enviado con exito',
                 'data'   => $formated_message
