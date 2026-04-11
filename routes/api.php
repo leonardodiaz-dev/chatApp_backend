@@ -23,5 +23,10 @@ Route::post('/conversations',[ConversationController::class,'store'])->middlewar
 
 Route::get('/users/find-user/{busqueda}',[UserController::class,'findUsers'])->middleware('auth:sanctum');
 
-Route::get('/messages/{idConversation}',[MessageController::class,'getMessagesByIdConversation'])->middleware('auth:sanctum');
-Route::post('/messages',[MessageController::class,'store'])->middleware('auth:sanctum');
+Route::middleware('auth:sanctum')->prefix('messages')->group(function () {
+
+    Route::get('{idConversation}', [MessageController::class, 'getMessagesByIdConversation']);
+    Route::post('/', [MessageController::class, 'store']);
+    Route::patch('{id}/delivered', [MessageController::class, 'delivered']);
+    Route::patch('{conversationId}/read',[MessageController::class,'read']);
+});

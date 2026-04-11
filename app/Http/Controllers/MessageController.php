@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageDelivered;
+use App\Events\MessageRead;
 use App\Events\MessageSent;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -26,10 +28,16 @@ class MessageController extends Controller
                         'content' => $message->content,
                         'mine'    => $message->user_id === $userId,
                         'date' => $message->created_at->toISOString(),
+                        'status' => $message->status,
                         'user_id' => $message->user_id,
                         'conversation_id' => $message->conversation_id
                     ];
                 });
+
+            Message::where('conversation_id', $idConversation)
+                ->where('user_id', '!=', $userId)
+                ->where('status', 'enviado')
+                ->update(['status' => 'entregado']);
 
             return response()->json([
                 'message' => 'Mensajes obtenidos correctamente',
@@ -67,7 +75,7 @@ class MessageController extends Controller
             ]);
             Conversation::where('id', $data['conversation_id'])
                 ->update([
-                    'last_message' =>$data['content'],
+                    'last_message' => $data['content'],
                     'last_message_at' => now()
                 ]);
             $formated_message = [
@@ -89,5 +97,26 @@ class MessageController extends Controller
                 'Error' => $th->getMessage()
             ], 500);
         }
+    }
+    public function delivered($id)
+    {
+        $message = Message::findOrFail($id);
+
+        if ($message->status === 'enviado') {
+            $message->status = 'entregado';
+            $message->save();
+        }
+        broadcast(new MessageDelivered($message->id, $message->conversation_id))->toOthers();
+        return response()->json();
+    }
+    public function read($conversationId)
+    {
+        Message::where('conversation_id', $conversationId)
+            ->where('status', 'entregado')
+            ->update(['status' => 'leido']);
+
+        broadcast(new MessageRead($conversationId))->toOthers();
+
+        return response()->json();
     }
 }
