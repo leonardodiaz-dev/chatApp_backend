@@ -107,6 +107,39 @@ class ConversationController extends Controller
         }
     }
 
+    public function getUnreadConversations()
+    {
+        try {
+            $userId = Auth::id();
+            $conversations = Conversation::whereHas('messages', function ($q) {
+                $q->whereIn('status', ['enviado', 'entregado']);
+            })->whereHas('users', fn($q) => $q->where('users.id', $userId))
+               ->with(['users' => function ($q) use ($userId) {
+                    $q->where('users.id', '!=', $userId);
+                }])
+                ->withCount(['messages' => function ($q) use($userId) {
+                    $q->whereIn('status', ['enviado', 'entregado'])
+                     ->where('user_id','!=',$userId);;
+                }])
+                ->get()
+                 ->map(function ($conversacion) {
+                    return [
+                        'id' => $conversacion->id,
+                        'type' => $conversacion->type,
+                        'name' => $conversacion->type === 'group'
+                            ? $conversacion->name
+                            : $conversacion->users->first()->name,
+                        'messages_count' => $conversacion->messages_count,
+                        'last_message' => $conversacion->last_message ?? '',
+                        'last_date' => $conversacion->last_message_at?->toISOString(),
+                    ];
+                });
+                return response()->json($conversations);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], 500);
+        }
+    }
+
     public function getAllConversations()
     {
         try {
