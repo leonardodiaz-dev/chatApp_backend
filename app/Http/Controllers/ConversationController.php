@@ -158,6 +158,7 @@ class ConversationController extends Controller
                             : $conversacion->users->first()->name,
                         'last_message' => $conversacion->last_message ?? '',
                         'last_date' => $conversacion->last_message_at?->toISOString(),
+                        'avatar' => $conversacion->avatar ?? '',
                     ];
                 });
             return response()->json([
