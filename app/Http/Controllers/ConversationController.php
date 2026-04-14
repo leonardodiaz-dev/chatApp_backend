@@ -111,18 +111,18 @@ class ConversationController extends Controller
     {
         try {
             $userId = Auth::id();
-            $conversations = Conversation::whereHas('messages', function ($q) {
-                $q->whereIn('status', ['enviado', 'entregado']);
+            $conversations = Conversation::whereHas('messages', function ($q) use ($userId) {
+                $q->whereIn('status', ['enviado', 'entregado'])
+                    ->where('user_id', '!=', $userId);
             })->whereHas('users', fn($q) => $q->where('users.id', $userId))
-               ->with(['users' => function ($q) use ($userId) {
+                ->with(['users' => function ($q) use ($userId) {
                     $q->where('users.id', '!=', $userId);
                 }])
-                ->withCount(['messages' => function ($q) use($userId) {
-                    $q->whereIn('status', ['enviado', 'entregado'])
-                     ->where('user_id','!=',$userId);;
+                ->withCount(['messages' => function ($q) {
+                    $q->whereIn('status', ['enviado', 'entregado']);
                 }])
                 ->get()
-                 ->map(function ($conversacion) {
+                ->map(function ($conversacion) {
                     return [
                         'id' => $conversacion->id,
                         'type' => $conversacion->type,
@@ -134,9 +134,32 @@ class ConversationController extends Controller
                         'last_date' => $conversacion->last_message_at?->toISOString(),
                     ];
                 });
-                return response()->json($conversations);
+            return response()->json($conversations);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
+        }
+    }
+
+    public function getConversationById($idConversation)
+    {
+        try {
+            $userId = Auth::id();
+
+            $conversation = Conversation::with(['users'])
+                ->where('id', $idConversation)
+                ->whereHas('users', function ($query) use ($userId) {
+                    $query->where('users.id', $userId);
+                })
+                ->first();
+            if (!$conversation) {
+                return response()->json(['message' => 'No tienes permiso o no existe'], 403);
+            }
+            return response()->json($conversation);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
+                'error' => $th->getMessage()
+            ], 500);
         }
     }
 

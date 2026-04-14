@@ -21,6 +21,7 @@ Route::get('/conversations/contact',[ConversationController::class,'getContacts'
 Route::get('/conversations',[ConversationController::class,'getAllConversations'])->middleware('auth:sanctum');
 Route::post('/conversations',[ConversationController::class,'store'])->middleware('auth:sanctum');
 Route::get('/conversations/unread',[ConversationController::class,'getUnreadConversations'])->middleware('auth:sanctum');
+Route::get('/conversations/{idConversation}',[ConversationController::class,'getConversationById'])->middleware('auth:sanctum');
 
 Route::get('/users/find-user/{busqueda}',[UserController::class,'findUsers'])->middleware('auth:sanctum');
 
