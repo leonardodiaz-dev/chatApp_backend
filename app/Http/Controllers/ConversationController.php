@@ -83,6 +83,39 @@ class ConversationController extends Controller
             ], 500);
         }
     }
+    public function update(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'conversation_id' => 'required|exists:conversations,id',
+                'user_ids'  => 'required|string'
+            ]);
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Datos de validación inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $data = $validator->validated();
+
+            $participants = collect(explode(',', $data['user_ids']))
+                ->map(fn($id) => (int) trim($id))
+                ->filter();
+
+            DB::transaction(function () use ($participants, $data) {
+                $conversation = Conversation::findOrFail($data['conversation_id']);
+                $conversation->users()->syncWithoutDetaching($participants);
+            });
+
+            return response()->json(['message' => 'Usuarios agregados al grupo']);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
+                'error' => $th->getMessage()
+            ], 500);
+        }
+    }
     public function getContacts()
     {
         try {
@@ -204,6 +237,29 @@ class ConversationController extends Controller
                 'message' => 'Se obtuvieron correctamente las conversaciones',
                 'data' => $conversations
             ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
+                'error' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getOthersUsersByConversation($idConversation)
+    {
+        try {
+            $userId = Auth::id();
+
+            $usersInConversation = Conversation::find($idConversation)
+                ->users()
+                ->pluck('users.id');
+
+            $users = User::whereHas('conversations', function ($q) use ($userId) {
+                $q->whereHas('users', fn($query) => $query->where('users.id', $userId));
+            })->whereNotIn('id', $usersInConversation)
+                ->where('id', '!=', $userId)
+                ->get();
+            return response()->json($users);
         } catch (\Throwable $th) {
             return response()->json([
                 'message' => 'Error al procesar la solicitud',
