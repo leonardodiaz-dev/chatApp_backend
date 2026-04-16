@@ -145,16 +145,30 @@ class ConversationController extends Controller
         try {
             $userId = Auth::id();
 
-            $conversation = Conversation::with(['users'])
+            $conversacion = Conversation::with(['users'])
                 ->where('id', $idConversation)
                 ->whereHas('users', function ($query) use ($userId) {
                     $query->where('users.id', $userId);
                 })
                 ->first();
-            if (!$conversation) {
+            if (!$conversacion) {
                 return response()->json(['message' => 'No tienes permiso o no existe'], 403);
             }
-            return response()->json($conversation);
+            $otherUser = $conversacion->users->firstWhere('id', '!=', $userId);
+            $formated_conversation = [
+                'id' => $conversacion->id,
+                'type' => $conversacion->type,
+                'name' => $conversacion->type === 'group'
+                    ? $conversacion->name
+                    :  $otherUser->name,
+                'last_message' => $conversacion->last_message ?? '',
+                'last_date' => $conversacion->last_message_at?->toISOString(),
+                'avatar' => $conversacion->type === 'group'
+                    ? $conversacion->avatar
+                    : $otherUser->avatar,
+                'users' => $conversacion->users
+            ];
+            return response()->json($formated_conversation);
         } catch (\Throwable $th) {
             return response()->json([
                 'message' => 'Error al procesar la solicitud',
@@ -181,7 +195,9 @@ class ConversationController extends Controller
                             : $conversacion->users->first()->name,
                         'last_message' => $conversacion->last_message ?? '',
                         'last_date' => $conversacion->last_message_at?->toISOString(),
-                        'avatar' => $conversacion->avatar ?? '',
+                        'avatar' => $conversacion->type === 'group'
+                            ? $conversacion->avatar
+                            : $conversacion->users->first()->avatar
                     ];
                 });
             return response()->json([
