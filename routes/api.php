@@ -15,20 +15,26 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register',[AuthController::class,'register']);
+Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-Route::get('/conversations/contact',[ConversationController::class,'getContacts'])->middleware('auth:sanctum');
-Route::get('/conversations',[ConversationController::class,'getAllConversations'])->middleware('auth:sanctum');
-Route::post('/conversations',[ConversationController::class,'store'])->middleware('auth:sanctum');
-Route::get('/conversations/unread',[ConversationController::class,'getUnreadConversations'])->middleware('auth:sanctum');
-Route::get('/conversations/{idConversation}',[ConversationController::class,'getConversationById'])->middleware('auth:sanctum');
-Route::put('/users',[UserController::class,'update'])->middleware('auth:sanctum');
-Route::get('/users/find-user/{busqueda}',[UserController::class,'findUsers'])->middleware('auth:sanctum');
+
+Route::middleware('auth:sanctum')->prefix('conversations')->group(function () {
+    Route::get('/', [ConversationController::class, 'getAllConversations']);
+    Route::get('/contact', [ConversationController::class, 'getContacts']);
+    Route::put('/',[ConversationController::class,'update']);
+    Route::post('/', [ConversationController::class, 'store']);
+    Route::get('/unread', [ConversationController::class, 'getUnreadConversations']);
+    Route::get('/{idConversation}', [ConversationController::class, 'getConversationById']);
+    Route::get('/users/{idConversation}', [ConversationController::class, 'getOthersUsersByConversation']);
+});
+
+Route::put('/users', [UserController::class, 'update'])->middleware('auth:sanctum');
+Route::get('/users/find-user/{busqueda}', [UserController::class, 'findUsers'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->prefix('messages')->group(function () {
 
     Route::get('{idConversation}', [MessageController::class, 'getMessagesByIdConversation']);
     Route::post('/', [MessageController::class, 'store']);
     Route::patch('{id}/delivered', [MessageController::class, 'delivered']);
-    Route::patch('{conversationId}/read',[MessageController::class,'read']);
+    Route::patch('{conversationId}/read', [MessageController::class, 'read']);
 });
