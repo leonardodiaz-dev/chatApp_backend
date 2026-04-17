@@ -16,8 +16,16 @@ class UserController extends Controller
         try {
             $userId = Auth::id();
             $termino = Str::lower($busqueda);
+
+            $contactIds = User::whereHas('conversations', function ($q) use ($userId) {
+                $q->whereHas('users', fn($query) => $query->where('users.id', $userId));
+            })->where('id', '!=', $userId)
+                ->get()
+                ->pluck('id');
+
             $resultados = User::whereRaw('LOWER(username) LIKE ?', ["%{$termino}%"])
                 ->where('id', '!=', $userId)
+                ->whereNotIn('id',$contactIds)
                 ->get()
                 ->map(function ($user) {
                     return [
