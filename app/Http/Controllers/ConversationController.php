@@ -225,7 +225,7 @@ class ConversationController extends Controller
                         'type' => $conversacion->type,
                         'name' => $conversacion->type === 'group'
                             ? $conversacion->name
-                            : $conversacion->users->first()->name,
+                            : $conversacion->users->first()->name." ".$conversacion->users->first()->lastname,
                         'last_message' => $conversacion->last_message ?? '',
                         'last_date' => $conversacion->last_message_at?->toISOString(),
                         'avatar' => $conversacion->type === 'group'
