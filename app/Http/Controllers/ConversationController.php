@@ -62,7 +62,16 @@ class ConversationController extends Controller
                     $participants->push($userId);
                 }
 
-                $conversation->users()->attach($participants->unique()->toArray());
+                $usersWithRoles = $participants->unique()->mapWithKeys(function ($id) use ($userId) {
+                    return [
+                        $id => [
+                            'role' => $id == $userId ? 'admin' : 'member'
+                        ]
+                    ];
+                })->toArray();
+
+
+                $conversation->users()->attach($usersWithRoles);
 
                 return $conversation;
             });
@@ -199,7 +208,14 @@ class ConversationController extends Controller
                 'avatar' => $conversacion->type === 'group'
                     ? $conversacion->avatar
                     : $otherUser->avatar,
-                'users' => $conversacion->users
+                'users' => $conversacion->users->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'avatar' => $user->avatar,
+                        'role' => $user->pivot->role
+                    ];
+                })
             ];
             return response()->json($formated_conversation);
         } catch (\Throwable $th) {
@@ -225,7 +241,7 @@ class ConversationController extends Controller
                         'type' => $conversacion->type,
                         'name' => $conversacion->type === 'group'
                             ? $conversacion->name
-                            : $conversacion->users->first()->name." ".$conversacion->users->first()->lastname,
+                            : $conversacion->users->first()->name . " " . $conversacion->users->first()->lastname,
                         'last_message' => $conversacion->last_message ?? '',
                         'last_date' => $conversacion->last_message_at?->toISOString(),
                         'avatar' => $conversacion->type === 'group'
@@ -262,6 +278,35 @@ class ConversationController extends Controller
             return response()->json($users);
         } catch (\Throwable $th) {
             return response()->json([
+                'message' => 'Error al procesar la solicitud',
+                'error' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteParticipante($idConversation, $userId)
+    {
+        try {
+            $currentUserId = Auth::id();
+
+            $conversation = Conversation::findOrFail($idConversation);
+
+            $isAdmin = $conversation->users()
+                ->where('users.id', $currentUserId)
+                ->wherePivot('role', 'admin')
+                ->exists();
+
+            if (!$isAdmin) {
+                return response()->json(['message' => 'No autorizado'], 403);
+            }
+
+            $conversation->users()->detach($userId);
+
+            return response()->json([
+                'message' => 'Usuario eliminado correctamente'
+            ]);
+        } catch (\Throwable $th) {
+              return response()->json([
                 'message' => 'Error al procesar la solicitud',
                 'error' => $th->getMessage()
             ], 500);
