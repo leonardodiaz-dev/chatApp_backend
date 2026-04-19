@@ -112,9 +112,15 @@ class ConversationController extends Controller
                 ->map(fn($id) => (int) trim($id))
                 ->filter();
 
-            DB::transaction(function () use ($participants, $data) {
+            $usersWithRoles = collect($participants)->mapWithKeys(function ($id) {
+                return [
+                    $id => ['role' => 'member'] 
+                ];
+            })->toArray();
+            
+            DB::transaction(function () use ($usersWithRoles, $data) {
                 $conversation = Conversation::findOrFail($data['conversation_id']);
-                $conversation->users()->syncWithoutDetaching($participants);
+                $conversation->users()->syncWithoutDetaching($usersWithRoles);
             });
 
             return response()->json(['message' => 'Usuarios agregados al grupo']);
@@ -306,7 +312,7 @@ class ConversationController extends Controller
                 'message' => 'Usuario eliminado correctamente'
             ]);
         } catch (\Throwable $th) {
-              return response()->json([
+            return response()->json([
                 'message' => 'Error al procesar la solicitud',
                 'error' => $th->getMessage()
             ], 500);
