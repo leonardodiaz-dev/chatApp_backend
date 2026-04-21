@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->prefix('conversations')->group(function () {
     Route::get('/{idConversation}', [ConversationController::class, 'getConversationById']);
     Route::get('/users/{idConversation}', [ConversationController::class, 'getOthersUsersByConversation']);
     Route::delete('/{idConversation}/user/{userId}',[ConversationController::class,'deleteParticipante']);
+    Route::post('/upload-avatar', [ConversationController::class, 'uploadAvatar']);
 });
 
 Route::put('/users', [UserController::class, 'update'])->middleware('auth:sanctum');
