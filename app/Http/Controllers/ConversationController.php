@@ -114,10 +114,10 @@ class ConversationController extends Controller
 
             $usersWithRoles = collect($participants)->mapWithKeys(function ($id) {
                 return [
-                    $id => ['role' => 'member'] 
+                    $id => ['role' => 'member']
                 ];
             })->toArray();
-            
+
             DB::transaction(function () use ($usersWithRoles, $data) {
                 $conversation = Conversation::findOrFail($data['conversation_id']);
                 $conversation->users()->syncWithoutDetaching($usersWithRoles);
@@ -310,6 +310,32 @@ class ConversationController extends Controller
 
             return response()->json([
                 'message' => 'Usuario eliminado correctamente'
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
+                'error' => $th->getMessage()
+            ], 500);
+        }
+    }
+    public function uploadAvatar(Request $request)
+    {
+        try {
+            $request->validate([
+                'avatar' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+                'id_conversation' => 'required|exists:conversations,id'
+            ]);
+
+            $path = $request->file('avatar')->store('avatars', 'public');
+
+            $conversation  = Conversation::find($request->input('id_conversation'));
+
+            $conversation->avatar = $path;
+            $conversation->save();
+
+            return response()->json([
+                'message' => 'Avatar subido correctamente',
+                'avatar' => $path
             ]);
         } catch (\Throwable $th) {
             return response()->json([
